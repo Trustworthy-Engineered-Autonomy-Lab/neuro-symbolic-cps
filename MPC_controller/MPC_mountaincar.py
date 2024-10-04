@@ -13,7 +13,7 @@ import time
 start_time = time.time()
 # Define the MPC parameters
 N = 110  # Prediction horizon
-lambda_control = 0.05  # Control effort penalty
+lambda_control = 0.0005  # Control effort penalty
 
 # Define the MountainCarContinuous environment
 env = gym.make('MountainCarContinuous-v0')
@@ -35,7 +35,8 @@ def dynamics(state, action):
 def objective(actions, initial_state):
     state = np.copy(initial_state)
     cost = 0.0
-    for i in range(N):
+    for i in range(N-30, N):
+        print(i)
         action = actions[i:i + 1]
         state = dynamics(state, action)
         position, _ = state
