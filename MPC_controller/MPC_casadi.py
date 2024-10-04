@@ -102,13 +102,13 @@ for i, x0 in enumerate(initial_states):
 
 
 
-# pos_list = x_opt[0,:]
-# #position = [item[0] for item in x_opt]
-# plt.plot(pos_list)
-# plt.title("State List Plot")
-# plt.xlabel("Index")
-# plt.ylabel("Position Value")
-# plt.show()
+pos_list = x_opt[0,:]
+#position = [item[0] for item in x_opt]
+plt.plot(pos_list)
+plt.title("State List Plot")
+plt.xlabel("Index")
+plt.ylabel("Position Value")
+plt.show()
 
 
 
