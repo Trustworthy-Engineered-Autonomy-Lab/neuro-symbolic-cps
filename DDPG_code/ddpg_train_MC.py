@@ -4,7 +4,7 @@ import torch
 #import matplotlib.pyplot as plt
 import os
 import time
-from ddpg_agent import DDPGAgent
+from ddpg_agent_pendulum import DDPGAgent
 import random
 import math
 
