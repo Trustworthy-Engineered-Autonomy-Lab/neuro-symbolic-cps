@@ -44,6 +44,10 @@ if __name__ == '__main__':
       plt.xlabel("Position")
       plt.ylabel("Velocity")
       plt.title("State Grid")
+    elif graph == 2:
+       plt.xlabel("Time")
+       plt.ylabel("Position")
+       plt.title("Position vs Time")
 
     np.random.seed(1)
 
@@ -70,16 +74,19 @@ if __name__ == '__main__':
     #get_MDP(env, MDP_state_bounds, action_space_env, num_data_per_state)
     if load_MDP != '1':
       try:
-          filename = './MDP/MDP_Errors/mc_mdp.pkl'
-          with open(filename, 'rb') as f:
-              MC_MDP = pickle.load(f)
+            filename = './MDP/MDP_Errors/mc_mdp.pkl'
+            with open(filename, 'rb') as f:
+                MC_MDP = pickle.load(f)
       except:
-          MC_MDP = get_MDP(env, MDP_state_bounds, action_space_env, num_data_per_state)
+            MC_MDP = get_MDP(env, MDP_state_bounds, action_space_env, num_data_per_state)
+            filename = './MDP/MDP_Errors/mc_mdp.pkl'
+            with open(filename, 'wb') as f:
+                pickle.dump(MC_MDP, f, pickle.HIGHEST_PROTOCOL)
     else:
-      MC_MDP = get_MDP(env, MDP_state_bounds, action_space_env, num_data_per_state)
-      filename = './MDP/MDP_Errors/mc_mdp.pkl'
-      with open(filename, 'wb') as f:
-        pickle.dump(MC_MDP, f, pickle.HIGHEST_PROTOCOL)
+        MC_MDP = get_MDP(env, MDP_state_bounds, action_space_env, num_data_per_state)
+        filename = './MDP/MDP_Errors/mc_mdp.pkl'
+        with open(filename, 'wb') as f:
+            pickle.dump(MC_MDP, f, pickle.HIGHEST_PROTOCOL)
 
     gamma = 1
     T = 110
@@ -97,7 +104,6 @@ if __name__ == '__main__':
     else:
        pi = dynamic_programming_finite_horizon(MC_MDP, action_space_env, gamma, T)
 
-
     perception_error_bound = (error_multiplier * -0.02961, error_multiplier * 0.02180)
 
     # YOUR CODE GOES HERE
@@ -109,6 +115,7 @@ if __name__ == '__main__':
     fail = 0
 
     bucket_diff = []
+
 
     for __ in range(num_episodes):
 
@@ -137,9 +144,9 @@ if __name__ == '__main__':
             if t == 0:
                 velocity = 0
             else:
-                velocity = observation[0] - prev_position
-                #prev_velocity = velocity
-                #velocity = prev_velocity + action * 0.0015 - 0.0025 * np.cos(3 * observation[0])
+                #velocity = observation[0] - prev_position
+                prev_velocity = velocity
+                velocity = prev_velocity + action * 0.0015 - 0.0025 * np.cos(3 * observation[0])
             
           
             prev_position = observation[0]
@@ -198,6 +205,7 @@ if __name__ == '__main__':
                 #all_rewards.append(reward)
                 #total_reward += sum(all_rewards)
                 #all_total_rewards.append(total_reward/T)
+            
         
     
     success_rate = success / (success + fail)
