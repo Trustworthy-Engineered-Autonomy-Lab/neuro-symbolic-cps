@@ -16,6 +16,12 @@ try:
 except:
     exit(1)
 
+sorted_data = pos_data.copy()
+sorted_data.sort()
+B0 = sorted_data[0]
+B3 = sorted_data[len(sorted_data) - 1]
+print(f'{B0}, {B3}')
+
 # Displays initial data
 plt.title('Perception Error vs Position')
 plt.xlabel('Position')
@@ -24,8 +30,8 @@ plt.scatter(pos_data, error_data, s=1)
 plt.show()
 
 # Constants for left and right bounds (B0 < B1 < B2 < B3)
-B0 = -1.2
-B3 = 0.6
+#B0 = -1.2
+#B3 = 0.6
 
 # Finds 95% error for each region
 def find_errors(B1, B2):
@@ -39,12 +45,13 @@ def find_errors(B1, B2):
         for j in range(len(pos_data)):
             if pos_data[j] <= bounds[i + 1] and pos_data[j] >= bounds[i]:
                 temp_data.append(abs(error_data[j]))
+        temp_data.append(100000)
         temp_data.sort()
         region_data[i] = temp_data
 
     # Finds 99% error for each region
     for i in range(3):
-        index = round(len(region_data[i]) * 0.99) - 1
+        index = int(np.ceil((len(region_data[i])) * 0.99) - 1)
         if len(region_data[i]) >= 1:
             errors[i] = region_data[i][index]
         else:
@@ -79,7 +86,7 @@ def simulated_annealiing(point):
     s_loss = calculate_loss(point)
     T = 1
     T_min = 0.0001
-    alpha = 0.1
+    alpha = 0.9
 
     while T > T_min:
         for i in range(10):
@@ -132,10 +139,10 @@ plt.show()
 new_min_point = simulated_annealiing(points[min_index])
 new_loss = calculate_loss(new_min_point)
 
-print('Pre simmulated annealing:')
-print(f'Loss: {min_loss}, Bounds: {points[min_index]}')
-print('Post simmulated annealing')
-print(f'Loss: {new_loss}, Bounds: {new_min_point}')
+print('Pre simulated annealing:')
+print(f'Loss: {min_loss}, Bounds: {points[min_index]}, 99% Errors: {find_errors(points[min_index][0], points[min_index][1])}')
+print('Post simulated annealing')
+print(f'Loss: {new_loss}, Bounds: {new_min_point}, 99% Errors: {find_errors(new_min_point[0], new_min_point[1])}')
 
 # Displays new data, post simulated annealing
 plt.title('Perception Error vs Position')
@@ -148,8 +155,3 @@ plt.axvline(x = new_min_point[0], color = 'r', label = 'New B1')
 plt.axvline(x = new_min_point[1], color = 'y', label = 'New B2')
 plt.legend(loc = 1, prop={'size': 6})
 plt.show()
-
-
-
-
-
