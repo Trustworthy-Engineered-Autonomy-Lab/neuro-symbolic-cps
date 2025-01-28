@@ -4,26 +4,29 @@ import numpy as np
 
 np.random.seed(1)
 
-data_percent = float(input('Enter percent of data to use (0.0,1.0): '))
-num_regions = int(input('Enter number of regions: '))
-initial_bound_type = input('0 for uniform, 1 for semi-random: ')
+# data_percent = float(input('Enter percent of data to use (0.0,1.0): '))
+# num_regions = int(input('Enter number of regions: '))
+# initial_bound_type = input('0 for uniform, 1 for semi-random: ')
+data_percent = 0.1
+num_regions = 3
+initial_bound_type = '0'
 
 # Loads data
 try:
-    filename = './Binning/pkls/data.pkl'
+    filename = './binning_data/data.pkl'
     with open(filename, 'rb') as f:
         data = pickle.load(f)
 except:
     exit(1)
 
 try:
-    filename = './Binning/pkls/pos_data.pkl'
+    filename = './binning_data/pos_data.pkl'
     with open(filename, 'rb') as f:
         pos_data = pickle.load(f)
 except:
     exit(1)
 try:
-    filename = './Binning/pkls/error_data.pkl'
+    filename = './binning_data/error_data.pkl'
     with open(filename, 'rb') as f:
         error_data = pickle.load(f)
     error_data = [abs(error) for error in error_data]
@@ -44,7 +47,7 @@ def reduce_data(percent):
         total_size = len(data['RealTrajectories'])
         count = 0
         while (float(total_size - count) / total_size) > percent:
-            index = int(np.random.uniform(0, len(data['RealTrajectories']))) 
+            index = int(np.random.uniform(0, len(data['RealTrajectories'])))
             data['RealTrajectories'].pop(index)
             data['EstTrajectories'].pop(index)
             data['Errors'].pop(index)
@@ -69,41 +72,10 @@ def split_data(bounds):
                 if cur_real_traj[k] > full_bounds[j] and cur_real_traj[k] <= full_bounds[j+1]:
                     sub_traj.append((cur_real_traj[k], abs(cur_real_traj[k] - cur_est_traj[k])))
             trajectories[j].append(sub_traj)
-    
-    return trajectories
-        
-
-"""
-def split_data(bounds):
-    full_bounds = [B_LEFT] + bounds + [B_RIGHT]
-    trajectories = []
-    for i in range(num_regions):
-        trajectories.append([])
-
-    for i in range(len(data['RealTrajectories'])):
-        flag = -1
-        for j in range(len(data['RealTrajectories'][i])):
-            if flag == -1:
-                if j == 0:
-                    temp_traj = [(data['RealTrajectories'][i][j], data['Errors'][i][j])]
-
-                for k in range(num_regions):
-                    if temp_traj[0][0] < full_bounds[k + 1]:
-                        flag = k + 1
-                        break
-
-            else:
-                if data['RealTrajectories'][i][j] <= full_bounds[flag] and data['RealTrajectories'][i][j] >= full_bounds[flag - 1]:
-                    temp_traj.append((data['RealTrajectories'][i][j], data['Errors'][i][j]))
-                    if j == len(data['RealTrajectories'][i]) - 1:
-                        trajectories[flag - 1].append(temp_traj)
-                else:
-                    trajectories[flag - 1].append(temp_traj)
-                    flag = -1
-                    temp_traj = [(data['RealTrajectories'][i][j], data['Errors'][i][j])]
 
     return trajectories
-"""
+
+
 
 def find_errors(bounds):
     trajectories = split_data(bounds)
@@ -133,7 +105,7 @@ def find_errors(bounds):
             errors.append(region_data[i][index])
         else:
             errors.append(100000)
-    
+
     return errors, region_sizes
 
     
