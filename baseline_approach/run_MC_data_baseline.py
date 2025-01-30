@@ -59,8 +59,6 @@ def computeCPFixedAlphas_MC(Rs, alphas, delta):
 
 def computeCoverageRAndAlphas_MC(Rs,alphas,D_cp):
     R_vals = [max([alphas[j] * Rs[i][j] for j in range(len(Rs[i]))]) for i in range(len(Rs))]
-
-    #R_vals = [max([alphas[j]*math.sqrt((x_vals[i][j]-x_hats[i][j])**2 + (y_vals[i][j]-y_hats[i][j])**2) for j in range(len(x_vals[i])) ]) for i in range(len(x_vals))]
     num_points_within = sum(r <= D_cp for r in R_vals)
     coverage_pct = float(num_points_within)/len(R_vals)
     return coverage_pct
