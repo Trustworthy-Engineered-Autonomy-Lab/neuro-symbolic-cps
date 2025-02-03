@@ -1,10 +1,13 @@
 import pickle
 import matplotlib.pyplot as plt
 import numpy as np
+from random import sample, seed
 
-np.random.seed(1)
+# Initializes seed
+seed(32611)
 
-data_percent = float(input('Enter percent of data to use (0.0,1.0): '))
+# Takes user inputs
+#data_percent = float(input('Enter percent of data to use (0.0,1.0): '))
 num_regions = int(input('Enter number of regions: '))
 initial_bound_type = input('0 for uniform, 1 for semi-random: ')
 
@@ -15,7 +18,6 @@ try:
         data = pickle.load(f)
 except:
     exit(1)
-
 try:
     filename = './Binning/pkls/pos_data.pkl'
     with open(filename, 'rb') as f:
@@ -26,12 +28,13 @@ try:
     filename = './Binning/pkls/error_data.pkl'
     with open(filename, 'rb') as f:
         error_data = pickle.load(f)
+    # Finds absolute value of all elements
     error_data = [abs(error) for error in error_data]
 except:
     exit(1)
 
-# Finds edge bounds
 
+# Finds edge bounds
 sorted_data = pos_data.copy()
 sorted_data.sort()
 B_LEFT = sorted_data[0]
@@ -39,19 +42,42 @@ B_RIGHT = sorted_data[len(sorted_data) - 1]
 print(f'{B_LEFT}, {B_RIGHT}')
 
 
-def reduce_data(percent):
-    if percent != 1.0:
-        total_size = len(data['RealTrajectories'])
-        count = 0
-        while (float(total_size - count) / total_size) > percent:
-            index = int(np.random.uniform(0, len(data['RealTrajectories']))) 
-            data['RealTrajectories'].pop(index)
-            data['EstTrajectories'].pop(index)
-            data['Errors'].pop(index)
-            count += 1
+# Returns a subset of the data
+# initial_data is the dataset you want to split
+# percent is the percent of the initial_data you want returned
+# total_size is the size of the initial data before any splitting
+def reduce_data(initial_data, percent, total_size):
+    new_data = {
+        'RealTrajectories': [],
+        'EstTrajectories': [],
+        'Errors': []
+    }
+    
+    if len(initial_data['RealTrajectories']) == 0:
+        return new_data
+    elif (total_size * percent) > (len(initial_data['RealTrajectories'])):
+        print('Not enough data. Decrease percent value.')
+        return new_data
+
+    indices = sample([num for num in range(int(len(initial_data['RealTrajectories'])))], int(total_size * percent))
+
+    for index in indices:
+        new_data['RealTrajectories'].append(initial_data['RealTrajectories'][index])
+        new_data['EstTrajectories'].append(initial_data['EstTrajectories'][index])
+        new_data['Errors'].append(initial_data['Errors'][index])
+
+    indices.sort()
+
+    for index in reversed(indices):
+        initial_data['RealTrajectories'].pop(index)
+        initial_data['EstTrajectories'].pop(index)
+        initial_data['Errors'].pop(index)
+
+    return new_data
 
 
-def split_data(bounds):
+# Splits data into subtrajectories for each region
+def split_data(bounds, data):
     full_bounds = [B_LEFT] + bounds + [B_RIGHT]
     trajectories = []
     for i in range(num_regions):
@@ -73,40 +99,9 @@ def split_data(bounds):
     return trajectories
         
 
-"""
-def split_data(bounds):
-    full_bounds = [B_LEFT] + bounds + [B_RIGHT]
-    trajectories = []
-    for i in range(num_regions):
-        trajectories.append([])
-
-    for i in range(len(data['RealTrajectories'])):
-        flag = -1
-        for j in range(len(data['RealTrajectories'][i])):
-            if flag == -1:
-                if j == 0:
-                    temp_traj = [(data['RealTrajectories'][i][j], data['Errors'][i][j])]
-
-                for k in range(num_regions):
-                    if temp_traj[0][0] < full_bounds[k + 1]:
-                        flag = k + 1
-                        break
-
-            else:
-                if data['RealTrajectories'][i][j] <= full_bounds[flag] and data['RealTrajectories'][i][j] >= full_bounds[flag - 1]:
-                    temp_traj.append((data['RealTrajectories'][i][j], data['Errors'][i][j]))
-                    if j == len(data['RealTrajectories'][i]) - 1:
-                        trajectories[flag - 1].append(temp_traj)
-                else:
-                    trajectories[flag - 1].append(temp_traj)
-                    flag = -1
-                    temp_traj = [(data['RealTrajectories'][i][j], data['Errors'][i][j])]
-
-    return trajectories
-"""
-
-def find_errors(bounds):
-    trajectories = split_data(bounds)
+# Returns 99% conformal bound errors for each region
+def find_errors(bounds, data):
+    trajectories = split_data(bounds, data)
 
     region_data = []
     errors = []
@@ -128,7 +123,7 @@ def find_errors(bounds):
         region_sizes.append(size)
 
     for i in range(num_regions):
-        index = int(np.ceil((len(region_data[i])) * 0.99) - 1)
+        index = int(np.ceil((len(region_data[i])) * (0.99 + (num_regions - 1)/(num_regions * 100))) - 1)
         if len(region_data[i]) >= 1:
             errors.append(region_data[i][index])
         else:
@@ -153,8 +148,8 @@ def generate_points(num_bounds):
     return bounds_list
 
 # Calculates the loss function for a given set of bounds
-def calculate_loss(bounds):
-    errors, steps = find_errors(bounds)
+def calculate_loss(bounds, data):
+    errors, steps = find_errors(bounds, data)
 
     # Previous loss function that uses width of bins
     #loss = ((point[0] - B0) * errors[0]) + ((point[1] - point[0]) * errors[1]) + ((B3 - point[1]) * errors[2])
@@ -170,7 +165,7 @@ def calculate_loss(bounds):
     return loss
 
 
-def generate_initial_bounds():
+def generate_initial_bounds(data):
     if initial_bound_type == '1':
         points = generate_points(100)
         losses = []
@@ -197,12 +192,12 @@ def generate_initial_bounds():
         for i in range(num_regions - 1):
             point.append(((1.8 / num_regions) * (i + 1)) - 1.2)
 
-        return point, calculate_loss(point)
+        return point, calculate_loss(point, data)
 
 # could explore a bfs-style approach
-def simulated_annealiing(point):
+def simulated_annealiing(point, data):
     s = point
-    s_loss = calculate_loss(point)
+    s_loss = calculate_loss(point, data)
     T = 1
     T_min = 0.0001
     alpha = 0.9
@@ -215,7 +210,7 @@ def simulated_annealiing(point):
                 s_new.append(new_B)
             
             s_new.sort()
-            s_new_loss = calculate_loss(s_new)
+            s_new_loss = calculate_loss(s_new, data)
 
             if s_new_loss < s_loss:
                 s = s_new
@@ -226,13 +221,25 @@ def simulated_annealiing(point):
     
     return s
 
+# Need to keep same structure below to ensure same results
+# Splits data into two datasets
+total_size = len(data['RealTrajectories'])
+data_one = reduce_data(data, 0.5, total_size)
+data_two = reduce_data(data, 0.5, total_size)
+# alpha_data is for region tuning, bounds_data for finding errors
+data_one_size = len(data_one['RealTrajectories'])
+alpha_data = reduce_data(data_one, 0.4, data_one_size)
+bounds_data = reduce_data(data_one, 0.6, data_one_size)
+# Example implementation for method 2:
+# data_two_size = len(data_two['RealTrajectories'])
+# ____ = reduce(data_two, percent, data_two_size)
+# ____ = reduce(data_two, percent, data_two_size)
 
-reduce_data(data_percent)
-
-initial_bounds, initial_loss = generate_initial_bounds()
+initial_bounds, initial_loss = generate_initial_bounds(alpha_data)
 
 # Generates n sets of bounds
 print(f'{initial_loss}, {initial_bounds}')
+print(calculate_loss(initial_bounds, alpha_data))
 
 # Displays initial data, pre simulated annealing
 plt.title('Perception Error vs Position')
@@ -247,13 +254,25 @@ plt.legend(loc = 1, prop={'size': 6})
 plt.show()
 
 # Uses simulated annealing to find more optimal set of bounds using the current set
-new_bounds = simulated_annealiing(initial_bounds)
-new_loss = calculate_loss(new_bounds)
+new_bounds = simulated_annealiing(initial_bounds, alpha_data)
+new_loss = calculate_loss(new_bounds, alpha_data)
 
-print('Pre simulated annealing:')
-print(f'Loss: {initial_loss}, Bounds: {initial_bounds}, 99% Errors: {find_errors(initial_bounds)[0]}')
-print('Post simulated annealing:')
-print(f'Loss: {new_loss}, Bounds: {new_bounds}, 99% Errors: {find_errors(new_bounds)[0]}')
+old_errors = find_errors(initial_bounds, alpha_data)[0]
+new_errors = find_errors(new_bounds, alpha_data)[0]
+
+print('--- Pre simulated annealing: ---')
+print(f'Loss: {initial_loss}\nBounds: {initial_bounds}\n99% Errors: {old_errors}')
+print('--- Post simulated annealing: ---')
+print(f'Loss: {new_loss}')
+
+
+for i in range(num_regions):
+    if i == 0:
+        print(f'[{round(B_LEFT, 6)}, {round(new_bounds[i], 6)}]: {round(new_errors[i], 6)}')
+    elif i == num_regions - 1:
+        print(f'[{round(new_bounds[i - 1], 6)}, {round(B_RIGHT, 6)}]: {round(new_errors[i], 6)}')
+    else:
+        print(f'[{round(new_bounds[i - 1], 6)}, {round(new_bounds[i], 6)}]: {round(new_errors[i], 6)}')
 
 
 # Displays new data, post simulated annealing
