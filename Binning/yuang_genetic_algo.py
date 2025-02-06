@@ -8,12 +8,6 @@ from scipy.optimize import differential_evolution
 np.random.seed(1)
 seed(32611)
 
-# Takes user inputs
-#data_percent = float(input('Enter percent of data to use (0.0,1.0): '))
-num_regions = int(input('Enter number of regions: '))
-initial_bound_type = input('0 for uniform, 1 for semi-random: ')
-loss_func_type = input('0 for weighted error loss, 1 for total error loss: ')
-
 # Loads data
 try:
     filename = './Binning/pkls/data.pkl'
@@ -80,8 +74,10 @@ def reduce_data(initial_data, percent, total_size):
 
 
 # Splits data into subtrajectories for each region
-def split_data(bounds, data):
+def split_data(bounds, data, num_regions):
+    bounds = list(bounds)
     full_bounds = [B_LEFT] + bounds + [B_RIGHT]
+
     trajectories = []
     for i in range(num_regions):
         trajectories.append([])
@@ -110,9 +106,8 @@ def split_data(bounds, data):
 
 
 # Returns 99% conformal bound errors for each region
-def find_errors(bounds, data):
-    trajectories = split_data(bounds, data)
-
+def find_errors(bounds, data, num_regions):
+    trajectories = split_data(bounds, data, num_regions)
     region_data = []
     errors = []
     region_sizes = []
@@ -141,9 +136,9 @@ def find_errors(bounds, data):
     
     return errors, region_sizes
 
-    
+"""    
 # Generates bounds where (x: B1, y: B2) and B1 <= B2
-def generate_points(num_bounds):
+def generate_points(num_bounds, num_regions):
     bounds_list = []
 
     for i in range(num_bounds):
@@ -156,28 +151,25 @@ def generate_points(num_bounds):
         bounds_list.append(cur_bounds)
 
     return bounds_list
+"""
 
 # Calculates the loss function for a given set of bounds
-def calculate_loss(bounds, data):
-    errors, steps = find_errors(bounds, data)
+def calculate_loss(bounds, data, num_regions):
+    errors, steps = find_errors(bounds, data, num_regions)
 
     # Previous loss function that uses width of bins
     #loss = ((point[0] - B0) * errors[0]) + ((point[1] - point[0]) * errors[1]) + ((B3 - point[1]) * errors[2])
     
     loss = 0
-    if loss_func_type == '1':
-        for i in range(num_regions):
-            loss += errors[i]
-    else:
-        total_steps = 0
-        for i in range(num_regions):
-            total_steps += steps[i]
-
-        for i in range(num_regions):
-            loss += (steps[i] / total_steps) * errors[i]
+    total_steps = 0
+    for i in range(num_regions):
+        total_steps += steps[i]
+    for i in range(num_regions):
+        loss += (steps[i] / total_steps) * errors[i]
+    
     return loss
 
-
+"""
 def generate_initial_bounds(data):
     if initial_bound_type == '1':
         points = generate_points(100)
@@ -206,7 +198,8 @@ def generate_initial_bounds(data):
             point.append(((1.8 / num_regions) * (i + 1)) - 1.2)
 
         return point, calculate_loss(point, data)
-
+"""
+"""
 # could explore a bfs-style approach
 def simulated_annealiing(point, data):
     s = point
@@ -233,6 +226,7 @@ def simulated_annealiing(point, data):
         print(f'{T}, {T_min}')
     
     return s
+"""
 
 # Need to keep same structure below to ensure same results
 # Splits data into two datasets
@@ -248,98 +242,107 @@ bounds_data = reduce_data(data_one, 0.75, data_one_size)
 # ____ = reduce(data_two, percent, data_two_size)
 # ____ = reduce(data_two, percent, data_two_size)
 
+def objective(region_bounds, N):
+    # Check constraint: region_bounds must be in ascending order
+    # If not, return a large penalty (here, 1e10)
+    """
+    if any(region_bounds[i] >= region_bounds[i+1] for i in range(len(region_bounds)-1)):
+        return 9000000
+    """
+    region_bounds.sort()
 
-"""MY CODE BELOW"""
+    upper_bounds, number_traj = find_errors(region_bounds, alpha_data, N)
 
-initial_bounds, initial_loss = generate_initial_bounds(alpha_data)
+    total_weighted_penalty = 0
+    # Adjust the denominator if needed (using number_traj[0] three times seems unusual)
+    total = sum(number_traj)
+    for i in range(N):
+        weight = number_traj[i] / total
+        penalty = upper_bounds[i] * 10
+        total_weighted_penalty += weight * penalty
 
-"""
-yuangs_bounds = [
-    -0.828191,
-    -0.228908
+    return total_weighted_penalty
 
-]
-yuangs_errors = find_errors(yuangs_bounds, bounds_data)[0]
+def partition_space(N):
+    X_min, X_max = B_LEFT, B_RIGHT  # Fixed min and max bounds for partitioning
 
-for i in range(num_regions):
-    if i == 0:
-        print(f'[{round(B_LEFT, 8)}, {round(yuangs_bounds[i], 8)}]: {round(yuangs_errors[i], 8)}')
-    elif i == num_regions - 1:
-        print(f'[{round(yuangs_bounds[i - 1], 8)}, {round(B_RIGHT, 8)}]: {round(yuangs_errors[i], 8)}')
-    else:
-        print(f'[{round(yuangs_bounds[i - 1], 8)}, {round(yuangs_bounds[i], 8)}]: {round(yuangs_errors[i], 8)}')
+    # Define bounds for each region boundary
+    bounds = [(X_min, X_max)] * (N - 1)
 
-exit(1)
-"""
+    # Differential Evolution Optimization
+    result = differential_evolution(
+        func=lambda region_bounds: objective(region_bounds, N),
+        bounds=bounds,
+        strategy='best1bin',
+        maxiter=1000,
+        tol=1e-7,
+        disp=True
+    )
 
-# Generates n sets of bounds
-print(f'{initial_loss}, {initial_bounds}')
-print(calculate_loss(initial_bounds, alpha_data))
+    # Extract the optimized region boundaries
+    final_bounds = [X_min] + list(result.x) + [X_max]
+    regions = [(final_bounds[i], final_bounds[i + 1]) for i in range(N)]
 
-# Displays initial data, pre simulated annealing
-plt.title('Perception Error vs Position')
-plt.xlabel('Position')
-plt.ylabel('Perception Error')
-plt.scatter(pos_data, error_data, s=1)
-plt.axvline(x = B_LEFT, color = 'black', label = 'Edge')
-plt.axvline(x = B_RIGHT, color = 'black', label = 'Edge')
-for i in range(len(initial_bounds)):
-    plt.axvline(x = initial_bounds[i], color = 'b')    
-plt.legend(loc = 1, prop={'size': 6})
-plt.show()
-
-# Uses simulated annealing to find more optimal set of bounds using the current set
-new_bounds = simulated_annealiing(initial_bounds, alpha_data)
-new_loss = calculate_loss(new_bounds, alpha_data)
-
-old_errors = find_errors(initial_bounds, alpha_data)[0]
-new_errors = find_errors(new_bounds, alpha_data)[0]
-
-print('--- Pre simulated annealing: ---')
-print(f'Loss: {initial_loss}\nBounds: {initial_bounds}\n99% Errors: {old_errors}')
-print('--- Post simulated annealing: ---')
-print(f'Loss: {new_loss}')
+    return regions
 
 
-for i in range(num_regions):
-    if i == 0:
-        print(f'[{round(B_LEFT, 6)}, {round(new_bounds[i], 6)}]: {round(new_errors[i], 6)}')
-    elif i == num_regions - 1:
-        print(f'[{round(new_bounds[i - 1], 6)}, {round(B_RIGHT, 6)}]: {round(new_errors[i], 6)}')
-    else:
-        print(f'[{round(new_bounds[i - 1], 6)}, {round(new_bounds[i], 6)}]: {round(new_errors[i], 6)}')
+"""YUANGS CODE"""
+output_file = "Binning/results_500data_95%.txt"
 
+with open(output_file, "w") as f:
+    f.write(f"Data Percentage: {0.25}\n")  # Save data percentage
 
-# Displays new data, post simulated annealing
-plt.title('Perception Error vs Position')
-plt.xlabel('Position')
-plt.ylabel('Perception Error')
-plt.scatter(pos_data, error_data, s=1)
-plt.axvline(x = B_LEFT, color = 'black', label = 'Edge')
-plt.axvline(x = B_RIGHT, color = 'black', label = 'Edge')
-for i in range(len(initial_bounds)):
-    plt.axvline(x = initial_bounds[i], color = 'b')    
-for i in range(len(new_bounds)):
-    plt.axvline(x = new_bounds[i], color = 'r')    
-plt.legend(loc = 1, prop={'size': 6})
-plt.show()
+    for number_regions in range(2, 8):  # Iterate from 3 to 7
+        # Partition the space into regions
+        regions = partition_space(number_regions)
+        regions_flat = [item for sublist in regions for item in (sublist if isinstance(sublist, tuple) else [sublist])]
 
+        regions_flat.sort()
 
-region_errors = find_errors(new_bounds, bounds_data)[0]
-print("Rounded Values:")
-for i in range(num_regions):
-    if i == 0:
-        print(f'[{round(B_LEFT, 6)}, {round(new_bounds[i], 6)}]: {round(region_errors[i], 6)}')
-    elif i == num_regions - 1:
-        print(f'[{round(new_bounds[i - 1], 6)}, {round(B_RIGHT, 6)}]: {round(region_errors[i], 6)}')
-    else:
-        print(f'[{round(new_bounds[i - 1], 6)}, {round(new_bounds[i], 6)}]: {round(region_errors[i], 6)}')
+        # Compute the total loss
 
-print("Unrounded Values:")
-for i in range(num_regions):
-    if i == 0:
-        print(f'[{B_LEFT}, {new_bounds[i]}]: {region_errors[i]}')
-    elif i == num_regions - 1:
-        print(f'[{new_bounds[i - 1]}, {B_RIGHT}]: {region_errors[i]}')
-    else:
-        print(f'[{new_bounds[i - 1]}, {new_bounds[i]}]: {region_errors[i]}')
+        """
+        # Save results to the file
+        f.write(f"  Number of Regions: {number_regions}\n")
+        f.write(f"  Revised Regions: {regions_flat}\n")
+        f.write(f"  Total Loss: {total_loss}\n\n")
+        """
+        
+        fixed_regions_flat = []
+        for i in range(len(regions_flat)):
+            if i % 2 == 0:
+                fixed_regions_flat.append(regions_flat[i])
+        
+        fixed_regions_flat.pop(0)
+
+        total_loss = calculate_loss(fixed_regions_flat, bounds_data, number_regions)
+        cp_regions = find_errors(fixed_regions_flat, bounds_data, number_regions)[0]
+
+        f.write(f'Number Regions: {number_regions}\n')
+        for i in range(number_regions):
+            if i == 0:
+                f.write(f'[{B_LEFT}, {fixed_regions_flat[i]}]: {cp_regions[i]}\n')
+            elif i == number_regions - 1:
+                f.write(f'[{fixed_regions_flat[i - 1]}, {B_RIGHT}]: {cp_regions[i]}\n\n')
+            else:
+                f.write(f'[{fixed_regions_flat[i - 1]}, {fixed_regions_flat[i]}]: {cp_regions[i]}\n')   
+
+        plt.title('Perception Error vs Position')
+        plt.xlabel('Position')
+        plt.ylabel('Perception Error')
+        plt.scatter(pos_data, error_data, s=1)
+        plt.axvline(x = B_LEFT, color = 'black', label = 'Edge')
+        plt.axvline(x = B_RIGHT, color = 'black', label = 'Edge')  
+        for i in range(len(fixed_regions_flat)):
+            plt.axvline(x = fixed_regions_flat[i], color = 'r')    
+        plt.legend(loc = 1, prop={'size': 6})
+        plt.show()    
+
+        # Print progress for debugging
+        print(f"Completed data_percent = {0.25}, num_regions = {number_regions}")
+        """
+        print(f"Revised Regions: {regions_flat}")
+        print(f"Total Loss: {total_loss}")
+        """
+
+print(f"Results saved to {output_file}.")
