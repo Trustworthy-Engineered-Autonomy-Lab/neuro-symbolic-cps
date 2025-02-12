@@ -183,19 +183,28 @@ if __name__ == "__main__":
 
     # Further split data_one
     data_one_size = len(data_one['RealTrajectories'])  # Fixed missing closing bracket
-    alpha_data = reduce_data(data_two, 0.2, data_one_size)
-    bounds_data = reduce_data(data_two, 0.8, data_one_size)
+    alpha_data = reduce_data(data_two, 0.025, data_one_size)
+    bounds_data = reduce_data(data_two, 0.975, data_one_size)
 
     alpha_disp = alpha_data['Errors']
     cp_caculate_disp = bounds_data['Errors']
 
 
     p_len = 90
-    delta = 0.01
+    delta = 0.05
     R_vals_calib_alpha_MC = alpha_disp
     R_vals_calib_alpha_MC = [
         sublist[:p_len] for sublist in R_vals_calib_alpha_MC
     ]
+
+    # alphas = 
+    calibrate_R = cp_caculate_disp
+    calibrate_R = [
+        sublist[:p_len] for sublist in calibrate_R
+    ]
+    D_cp = computeCPFixedAlphas_MC(calibrate_R,alphas,delta)
+    print("The final confromal bounds: ", D_cp)
+
     ## run optimziation
     #M = 100000  # big value for linearization of max constraint
     M = 100000
@@ -243,7 +252,7 @@ if __name__ == "__main__":
         sublist[:p_len] for sublist in calibrate_R
     ]
     D_cp = computeCPFixedAlphas_MC(calibrate_R,alphas,delta)
-    print("The final confromal bounds: ",D_cp)
+    print("The final confromal bounds: ", D_cp)
 
     # validate_R = discrepancy_data[700:1400]
     # validate_R = [
@@ -255,9 +264,7 @@ if __name__ == "__main__":
     #
     # validation_coverage_MC1 = computeCoverageRAndAlphas_MC_yuang(validate_R,D_cp)
     # print("Real validation coverage MC: " + str(validation_coverage_MC1))
-    #
-    #
-    #
+
 
 
 
