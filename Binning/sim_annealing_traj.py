@@ -2,14 +2,17 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 from random import sample, seed
+from scipy.optimize import differential_evolution
 
 # Initializes seed
+np.random.seed(1)
 seed(32611)
 
 # Takes user inputs
 #data_percent = float(input('Enter percent of data to use (0.0,1.0): '))
 num_regions = int(input('Enter number of regions: '))
 initial_bound_type = input('0 for uniform, 1 for semi-random: ')
+loss_func_type = input('0 for weighted error loss, 1 for total error loss: ')
 
 # Loads data
 try:
@@ -84,20 +87,27 @@ def split_data(bounds, data):
         trajectories.append([])
 
     for i in range(len(data['RealTrajectories'])):
-        cur_real_traj = data['RealTrajectories'][i]
-        cur_est_traj = data['EstTrajectories'][i]
-        cur_real_traj.sort()
-        cur_est_traj.sort()
+        real_traj = data['RealTrajectories'][i]
+        est_traj = data['EstTrajectories'][i]
+
+        cur_real_traj = []
+        cur_est_traj = []
+
+        indices = np.argsort(real_traj)
+        for p in range(len(indices)):
+            cur_real_traj.append(real_traj[indices[p]])
+            cur_est_traj.append(est_traj[indices[p]])
 
         for j in range(num_regions):
             sub_traj = []
             for k in range(len(cur_real_traj)):
                 if cur_real_traj[k] > full_bounds[j] and cur_real_traj[k] <= full_bounds[j+1]:
                     sub_traj.append((cur_real_traj[k], abs(cur_real_traj[k] - cur_est_traj[k])))
-            trajectories[j].append(sub_traj)
+            if len(sub_traj) > 0:
+                trajectories[j].append(sub_traj)
     
     return trajectories
-        
+
 
 # Returns 99% conformal bound errors for each region
 def find_errors(bounds, data):
@@ -123,7 +133,7 @@ def find_errors(bounds, data):
         region_sizes.append(size)
 
     for i in range(num_regions):
-        index = int(np.ceil((len(region_data[i])) * (0.99 + (num_regions - 1)/(num_regions * 100))) - 1)
+        index = int(np.ceil((len(region_data[i])) * (1 - (0.05 / num_regions))) - 1)
         if len(region_data[i]) >= 1:
             errors.append(region_data[i][index])
         else:
@@ -154,14 +164,17 @@ def calculate_loss(bounds, data):
     # Previous loss function that uses width of bins
     #loss = ((point[0] - B0) * errors[0]) + ((point[1] - point[0]) * errors[1]) + ((B3 - point[1]) * errors[2])
     
-    total_steps = 0
-    for i in range(num_regions):
-        total_steps += steps[i]
-
     loss = 0
-    for i in range(num_regions):
-        loss += (steps[i] / total_steps) * errors[i]
+    if loss_func_type == '1':
+        for i in range(num_regions):
+            loss += errors[i]
+    else:
+        total_steps = 0
+        for i in range(num_regions):
+            total_steps += steps[i]
 
+        for i in range(num_regions):
+            loss += (steps[i] / total_steps) * errors[i]
     return loss
 
 
@@ -228,14 +241,36 @@ data_one = reduce_data(data, 0.5, total_size)
 data_two = reduce_data(data, 0.5, total_size)
 # alpha_data is for region tuning, bounds_data for finding errors
 data_one_size = len(data_one['RealTrajectories'])
-alpha_data = reduce_data(data_one, 0.4, data_one_size)
-bounds_data = reduce_data(data_one, 0.6, data_one_size)
+alpha_data = reduce_data(data_one, 0.25, data_one_size)
+bounds_data = reduce_data(data_one, 0.75, data_one_size)
 # Example implementation for method 2:
 # data_two_size = len(data_two['RealTrajectories'])
 # ____ = reduce(data_two, percent, data_two_size)
 # ____ = reduce(data_two, percent, data_two_size)
 
+
+"""MY CODE BELOW"""
+
 initial_bounds, initial_loss = generate_initial_bounds(alpha_data)
+
+"""
+yuangs_bounds = [
+    -0.828191,
+    -0.228908
+
+]
+yuangs_errors = find_errors(yuangs_bounds, bounds_data)[0]
+
+for i in range(num_regions):
+    if i == 0:
+        print(f'[{round(B_LEFT, 8)}, {round(yuangs_bounds[i], 8)}]: {round(yuangs_errors[i], 8)}')
+    elif i == num_regions - 1:
+        print(f'[{round(yuangs_bounds[i - 1], 8)}, {round(B_RIGHT, 8)}]: {round(yuangs_errors[i], 8)}')
+    else:
+        print(f'[{round(yuangs_bounds[i - 1], 8)}, {round(yuangs_bounds[i], 8)}]: {round(yuangs_errors[i], 8)}')
+
+exit(1)
+"""
 
 # Generates n sets of bounds
 print(f'{initial_loss}, {initial_bounds}')
@@ -288,3 +323,23 @@ for i in range(len(new_bounds)):
     plt.axvline(x = new_bounds[i], color = 'r')    
 plt.legend(loc = 1, prop={'size': 6})
 plt.show()
+
+
+region_errors = find_errors(new_bounds, bounds_data)[0]
+print("Rounded Values:")
+for i in range(num_regions):
+    if i == 0:
+        print(f'[{round(B_LEFT, 6)}, {round(new_bounds[i], 6)}]: {round(region_errors[i], 6)}')
+    elif i == num_regions - 1:
+        print(f'[{round(new_bounds[i - 1], 6)}, {round(B_RIGHT, 6)}]: {round(region_errors[i], 6)}')
+    else:
+        print(f'[{round(new_bounds[i - 1], 6)}, {round(new_bounds[i], 6)}]: {round(region_errors[i], 6)}')
+
+print("Unrounded Values:")
+for i in range(num_regions):
+    if i == 0:
+        print(f'[{B_LEFT}, {new_bounds[i]}]: {region_errors[i]}')
+    elif i == num_regions - 1:
+        print(f'[{new_bounds[i - 1]}, {B_RIGHT}]: {region_errors[i]}')
+    else:
+        print(f'[{new_bounds[i - 1]}, {new_bounds[i]}]: {region_errors[i]}')
