@@ -67,11 +67,4 @@ env.close()
 # Save the rewards as txt file
 np.savetxt(current_path + f'/ddpg_reward_{timestamp}.txt', REWARD_BUFFER)
 
-# # Plot rewards using ax.plot()
-# plt.plot(REWARD_BUFFER)
-# plt.xlabel('Episode')
-# plt.ylabel('Reward')
-# plt.title('DDPG Reward')
-# plt.grid()
-# plt.show()
-# plt.savefig(current_path + f'/ddpg_reward_{timestamp}.png')
+

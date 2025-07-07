@@ -1,5 +1,3 @@
-
-
 import numpy as np
 # from gurobipy import *
 
@@ -202,8 +200,8 @@ if __name__ == "__main__":
     calibrate_R = [
         sublist[:p_len] for sublist in calibrate_R
     ]
-    D_cp = computeCPFixedAlphas_MC(calibrate_R,alphas,delta)
-    print("The final confromal bounds: ", D_cp)
+    # D_cp = computeCPFixedAlphas_MC(calibrate_R,alphas,delta)
+    # print("The final confromal bounds: ", D_cp)
 
     ## run optimziation
     #M = 100000  # big value for linearization of max constraint
