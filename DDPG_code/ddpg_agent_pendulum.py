@@ -25,15 +25,10 @@ class Actor(nn.Module):
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
         self.fc3 = nn.Linear(hidden_dim, action_dim)
 
-    # def forward(self, x):
-    #     x = torch.relu(self.fc1(x))
-    #     x = torch.relu(self.fc2(x))
-    #     x = torch.tanh(self.fc3(x))  # Pendulum action space is [-2, 2]
-    #     return x * 2
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
-        x = torch.tanh(self.fc3(x))  # mountain car action space is [-2, 2]
+        x = torch.tanh(self.fc3(x))
         return x
 
 
@@ -121,6 +116,19 @@ class DDPGAgent:
         self.critic_optimizer.zero_grad()  # .zero_grad() clears old gradients from the last step
         critic_loss.backward()  # .backward() computes the derivative of the loss
         self.critic_optimizer.step()  # .step() is to update the parameters
+
+
+        # Critic update
+        next_actions = self.actor_target(next_states)
+        target_Q = self.critic_target(next_states,
+                                      next_actions.detach())  # .detach() means the gradient won't be backpropagated to the actor
+        target_Q = rewards + (GAMMA * target_Q )
+        current_Q = self.critic(states, actions)
+        critic_loss = nn.MSELoss()(current_Q, target_Q.detach())  # nn.MSELoss() means Mean Squared Error
+        self.critic_optimizer.zero_grad()  # .zero_grad() clears old gradients from the last step
+        critic_loss.backward()  # .backward() computes the derivative of the loss
+        self.critic_optimizer.step()  # .step() is to update the parameters
+
 
         # Actor update
         actor_loss = -self.critic(states, self.actor(states)).mean()  # .mean() is to calculate the mean of the tensor

@@ -159,8 +159,8 @@ print('here are all the split regions:', regions)
 all_bounds = np.array(regions).flatten()
 counts = Counter(all_bounds)
 
-two_bounds = [value for value, count in counts.items() if count > 1]
 
+two_bounds = [value for value, count in counts.items() if count > 1]
 errors_number_of_traj = find_errors(two_bounds[0], two_bounds[1])
 CP_bounds_99 = errors_number_of_traj[0]
 print(CP_bounds_99)
